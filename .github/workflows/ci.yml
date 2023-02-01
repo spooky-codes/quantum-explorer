@@ -1,0 +1,141 @@
+name: Build and release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  HUSKY: 0
+
+jobs:
+  build-and-release:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18]
+        npm-version: [8]
+        yarn-version: [3]
+        pnpm-version: [7]
+
+    steps:
+      - name: Checkout [Pull Request]
+        uses: actions/checkout@v3
+        if: ${{ github.event_name == 'pull_request' }}
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout [Default Branch]
+        uses: actions/checkout@v3
+        if: ${{ github.event_name != 'pull_request' }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # We need to fetch all branches and commits so that Nx affected has a base to compare against.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Derive the base (i.e. NX_BASE) and head (i.e. NX_HEAD) commit hashes (used by `nx affected ...` commands)
+        uses: nrwl/nx-set-shas@v3          
+
+      - name: Detect package manager
+        id: package_manager
+        run: |
+          echo "name=$([[ -f ./yarn.lock ]] && echo 'yarn' || ([[ -f ./pnpm-lock.yaml ]] && echo 'pnpm') || echo 'npm')" >> $GITHUB_OUTPUT
+      
+      - name: Set node/npm/yarn versions using Volta toolchain configurator
+        uses: volta-cli/action@v3
+        with:
+          node-version: '${{ matrix.node-version }}'
+          npm-version: '${{ matrix.npm-version }}'
+          yarn-version: '${{ matrix.yarn-version }}'
+
+      - name: Install PNPM
+        if: steps.package_manager.outputs.name == 'pnpm'
+        uses: pnpm/action-setup@v2
+        with:
+          version: '${{ matrix.pnpm-version }}'
+
+      - name: Print node/npm/yarn/pnpm versions
+        id: versions
+        run: |
+          node_ver=$( node --version )
+          yarn_ver=$( yarn --version || true )
+          pnpm_ver=$( pnpm --version || true )
+          echo "Node: ${node_ver:1}"
+          echo "NPM: $(npm --version )"
+          if [[ $yarn_ver != '' ]]; then echo "Yarn: $yarn_ver"; fi
+          if [[ $pnpm_ver != '' ]]; then echo "PNPM: $pnpm_ver"; fi
+          echo "node_version=${node_ver:1}" >> $GITHUB_OUTPUT
+
+      - name: Use the node_modules cache if available [npm]
+        if: steps.package_manager.outputs.name == 'npm'
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ steps.versions.outputs.node_version }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ steps.versions.outputs.node_version }}-
+
+      - name: Use the node_modules cache if available [pnpm]
+        if: steps.package_manager.outputs.name == 'pnpm'
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-node-${{ steps.versions.outputs.node_version }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ steps.versions.outputs.node_version }}-
+
+      - name: Get Yarn cache directory path
+        if: steps.package_manager.outputs.name == 'yarn'
+        id: yarn-cache-dir-path
+        run: |
+          echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+          echo "Yarn cache folder is $GITHUB_OUTPUT"
+
+      - name: Restore Yarn cache
+        if: steps.package_manager.outputs.name == 'yarn'
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: yarn-cache-${{ hashFiles('**/yarn.lock', '.yarnrc.yml') }}
+          restore-keys: |
+            yarn-cache-
+
+      - name: Install dependencies
+        run: |
+          if [ "${{ steps.package_manager.outputs.name == 'yarn' }}" == "true" ]; then
+            echo "Running yarn install --immutable"
+            yarn install --immutable
+          elif [ "${{ steps.package_manager.outputs.name == 'pnpm' }}" == "true" ]; then
+            echo "Running pnpm install --frozen-lockfile"
+            pnpm install --frozen-lockfile
+          else
+            echo "Running npm ci"
+            npm ci
+          fi
+
+      - name: Test source code (only affected files)
+        run: yarn nx affected --target test --parallel 3 --ci --code-coverage
+
+      - name: Lint and pretty print (only affected files)
+        run: |
+          yarn nx workspace-lint
+          yarn nx format:write --verbose
+          yarn nx affected --target lint --parallel 3
+
+      - name: Build (only affected files)
+        run: yarn nx affected --target build --parallel 3
+
+      - name: Release
+        if: ${{ success() && (github.event_name != 'pull_request' || github.event.action == 'closed' && github.event.pull_request.merged == true) }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.GHA_TOKEN }}
+        run: |
+          yarn nx affected --target release --all

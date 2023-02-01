@@ -1,0 +1,8 @@
+{
+  "{packages,tools}/**/*.{ts,js,json,md,html,css,scss}": [
+    "yarn nx workspace-lint",
+    "yarn nx affected --target lint --uncommitted --fix true",
+    "yarn nx affected --target test --uncommitted",
+    "yarn nx format:write --uncommitted --libs-and-apps"
+  ]
+}

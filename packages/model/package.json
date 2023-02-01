@@ -1,0 +1,20 @@
+{
+  "name": "@spooky-codes/quantum-explorer-model",
+  "author": "Spooky Contributors",
+  "version": "0.0.0-semantic-release",
+  "type": "commonjs",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/spooky-codes/quantum-explorer.git",
+    "directory": "packages/model"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "dependencies": {
+    "@swc/helpers": "^0.4.00"
+  },
+  "devDependencies": {}
+}

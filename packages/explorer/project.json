@@ -1,0 +1,54 @@
+{
+  "name": "explorer",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/explorer/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nrwl/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "builds/packages/explorer",
+        "format": ["esm"],
+        "main": "packages/explorer/src/main.ts",
+        "tsConfig": "packages/explorer/tsconfig.app.json",
+        "assets": ["packages/explorer/src/assets"]
+      }
+    },
+    "serve": {
+      "executor": "@nrwl/js:node",
+      "options": {
+        "buildTarget": "explorer:build"
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "explorer:build:production"
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nrwl/linter:eslint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["packages/explorer/**/*.ts"]
+      }
+    },
+    "test": {
+      "executor": "@nrwl/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "packages/explorer/jest.config.ts",
+        "passWithNoTests": true
+      }
+    },
+    "release": {
+      "executor": "nx:run-commands",
+      "outputs": [],
+      "options": {
+        "command": "yarn semantic-release --extends ./packages/explorer/release.config.js",
+        "parallel": false
+      }
+    }
+  },
+  "tags": ["quantum:circuit", "quantum:visualiser"]
+}

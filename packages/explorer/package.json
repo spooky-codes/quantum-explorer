@@ -1,0 +1,24 @@
+{
+  "name": "@spooky-codes/quantum-explorer-cli",
+  "version": "0.0.0-semantic-release",
+  "type": "commonjs",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/spooky-codes/quantum-explorer.git",
+    "directory": "packages/explorer"
+  },
+  "bin": {
+    "explorer": "main.js"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "dependencies": {
+    "@swc/helpers": "^0.4.14",
+    "@spooky-codes/quantum-explorer-model": "latest",
+    "commander": "10.0.0"
+  },
+  "devDependencies": {}
+}
