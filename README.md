@@ -1,5 +1,11 @@
-# Quantum Circuit Explorer
+# Visual quantum circuits explorer
 
+
+## Introduction
+
+This Typescript project implements a visual editor for quantum circuits. This editor is executed in an embedded Chromium inside VScode extension or IntelliJ plugins.
+
+This documentation is embryonic and will be improved in the near future.
 
 ## Understand this workspace
 
